@@ -38,11 +38,130 @@ export const DEFAULT_GEMINI_EMBEDDING_MODEL = 'gemini-embedding-001';
 export const DEFAULT_THINKING_MODE = 8192;
 
 /**
+ * Model metadata to centralize capability detection.
+ */
+interface ModelMetadata {
+  isPreview: boolean;
+  isPro: boolean;
+  family: 'gemini-2' | 'gemini-3' | 'custom';
+  supportsModernFeatures: boolean;
+  supportsMultimodalFunctionResponse: boolean;
+}
+
+const MODELS_METADATA: Record<string, ModelMetadata> = {
+  [PREVIEW_GEMINI_MODEL]: {
+    isPreview: true,
+    isPro: true,
+    family: 'gemini-3',
+    supportsModernFeatures: true,
+    supportsMultimodalFunctionResponse: true,
+  },
+  [PREVIEW_GEMINI_3_1_MODEL]: {
+    isPreview: true,
+    isPro: true,
+    family: 'gemini-3',
+    supportsModernFeatures: true,
+    supportsMultimodalFunctionResponse: true,
+  },
+  [PREVIEW_GEMINI_3_1_CUSTOM_TOOLS_MODEL]: {
+    isPreview: true,
+    isPro: true,
+    family: 'gemini-3',
+    supportsModernFeatures: true,
+    supportsMultimodalFunctionResponse: true,
+  },
+  [PREVIEW_GEMINI_FLASH_MODEL]: {
+    isPreview: true,
+    isPro: false,
+    family: 'gemini-3',
+    supportsModernFeatures: true,
+    supportsMultimodalFunctionResponse: true,
+  },
+  [DEFAULT_GEMINI_MODEL]: {
+    isPreview: false,
+    isPro: true,
+    family: 'gemini-2',
+    supportsModernFeatures: false,
+    supportsMultimodalFunctionResponse: false,
+  },
+  [DEFAULT_GEMINI_FLASH_MODEL]: {
+    isPreview: false,
+    isPro: false,
+    family: 'gemini-2',
+    supportsModernFeatures: false,
+    supportsMultimodalFunctionResponse: false,
+  },
+  [DEFAULT_GEMINI_FLASH_LITE_MODEL]: {
+    isPreview: false,
+    isPro: false,
+    family: 'gemini-2',
+    supportsModernFeatures: false,
+    supportsMultimodalFunctionResponse: false,
+  },
+};
+
+/**
+ * Internal helper to get metadata for a model.
+ */
+function getMetadata(model: string): ModelMetadata {
+  const resolved = resolveModel(model);
+  if (MODELS_METADATA[resolved]) {
+    return MODELS_METADATA[resolved];
+  }
+  // Default for custom models
+  return {
+    isPreview: false,
+    isPro: resolved.toLowerCase().includes('pro'),
+    family: 'custom',
+    supportsModernFeatures: true,
+    supportsMultimodalFunctionResponse: false,
+  };
+}
+
+/**
+ * Mapping of model aliases to their resolution logic.
+ */
+const MODEL_RESOLUTION_MAP: Record<
+  string,
+  | string
+  | ((useGemini3_1: boolean, useCustomToolModel: boolean) => string)
+> = {
+  [PREVIEW_GEMINI_MODEL]: (useGemini3_1, useCustomToolModel) =>
+    useGemini3_1
+      ? useCustomToolModel
+        ? PREVIEW_GEMINI_3_1_CUSTOM_TOOLS_MODEL
+        : PREVIEW_GEMINI_3_1_MODEL
+      : PREVIEW_GEMINI_MODEL,
+  [PREVIEW_GEMINI_MODEL_AUTO]: (useGemini3_1, useCustomToolModel) =>
+    useGemini3_1
+      ? useCustomToolModel
+        ? PREVIEW_GEMINI_3_1_CUSTOM_TOOLS_MODEL
+        : PREVIEW_GEMINI_3_1_MODEL
+      : PREVIEW_GEMINI_MODEL,
+  [GEMINI_MODEL_ALIAS_AUTO]: (useGemini3_1, useCustomToolModel) =>
+    useGemini3_1
+      ? useCustomToolModel
+        ? PREVIEW_GEMINI_3_1_CUSTOM_TOOLS_MODEL
+        : PREVIEW_GEMINI_3_1_MODEL
+      : PREVIEW_GEMINI_MODEL,
+  [GEMINI_MODEL_ALIAS_PRO]: (useGemini3_1, useCustomToolModel) =>
+    useGemini3_1
+      ? useCustomToolModel
+        ? PREVIEW_GEMINI_3_1_CUSTOM_TOOLS_MODEL
+        : PREVIEW_GEMINI_3_1_MODEL
+      : PREVIEW_GEMINI_MODEL,
+  [DEFAULT_GEMINI_MODEL_AUTO]: DEFAULT_GEMINI_MODEL,
+  [GEMINI_MODEL_ALIAS_FLASH]: PREVIEW_GEMINI_FLASH_MODEL,
+  [GEMINI_MODEL_ALIAS_FLASH_LITE]: DEFAULT_GEMINI_FLASH_LITE_MODEL,
+};
+
+/**
  * Resolves the requested model alias (e.g., 'auto-gemini-3', 'pro', 'flash', 'flash-lite')
  * to a concrete model name.
  *
  * @param requestedModel The model alias or concrete model name requested by the user.
  * @param useGemini3_1 Whether to use Gemini 3.1 Pro Preview for auto/pro aliases.
+ * @param useCustomToolModel Whether to use the custom tools model for Gemini 3.1.
  * @returns The resolved concrete model name.
  */
 export function resolveModel(
@@ -50,31 +169,11 @@ export function resolveModel(
   useGemini3_1: boolean = false,
   useCustomToolModel: boolean = false,
 ): string {
-  switch (requestedModel) {
-    case PREVIEW_GEMINI_MODEL:
-    case PREVIEW_GEMINI_MODEL_AUTO:
-    case GEMINI_MODEL_ALIAS_AUTO:
-    case GEMINI_MODEL_ALIAS_PRO: {
-      if (useGemini3_1) {
-        return useCustomToolModel
-          ? PREVIEW_GEMINI_3_1_CUSTOM_TOOLS_MODEL
-          : PREVIEW_GEMINI_3_1_MODEL;
-      }
-      return PREVIEW_GEMINI_MODEL;
-    }
-    case DEFAULT_GEMINI_MODEL_AUTO: {
-      return DEFAULT_GEMINI_MODEL;
-    }
-    case GEMINI_MODEL_ALIAS_FLASH: {
-      return PREVIEW_GEMINI_FLASH_MODEL;
-    }
-    case GEMINI_MODEL_ALIAS_FLASH_LITE: {
-      return DEFAULT_GEMINI_FLASH_LITE_MODEL;
-    }
-    default: {
-      return requestedModel;
-    }
+  const resolution = MODEL_RESOLUTION_MAP[requestedModel];
+  if (typeof resolution === 'function') {
+    return resolution(useGemini3_1, useCustomToolModel);
   }
+  return resolution ?? requestedModel;
 }
 
 /**
@@ -82,6 +181,8 @@ export function resolveModel(
  *
  * @param requestedModel The current requested model (e.g. auto-gemini-2.5).
  * @param modelAlias The alias selected by the classifier ('flash' or 'pro').
+ * @param useGemini3_1 Whether to use Gemini 3.1 Pro Preview for auto/pro aliases.
+ * @param useCustomToolModel Whether to use the custom tools model for Gemini 3.1.
  * @returns The resolved concrete model name.
  */
 export function resolveClassifierModel(
@@ -91,22 +192,26 @@ export function resolveClassifierModel(
   useCustomToolModel: boolean = false,
 ): string {
   if (modelAlias === GEMINI_MODEL_ALIAS_FLASH) {
-    if (
-      requestedModel === DEFAULT_GEMINI_MODEL_AUTO ||
-      requestedModel === DEFAULT_GEMINI_MODEL
-    ) {
+    const resolved = resolveModel(
+      requestedModel,
+      useGemini3_1,
+      useCustomToolModel,
+    );
+    const metadata = getMetadata(resolved);
+    if (metadata.family === 'gemini-2') {
       return DEFAULT_GEMINI_FLASH_MODEL;
     }
-    if (
-      requestedModel === PREVIEW_GEMINI_MODEL_AUTO ||
-      requestedModel === PREVIEW_GEMINI_MODEL
-    ) {
+    if (metadata.family === 'gemini-3') {
       return PREVIEW_GEMINI_FLASH_MODEL;
     }
     return resolveModel(GEMINI_MODEL_ALIAS_FLASH);
   }
   return resolveModel(requestedModel, useGemini3_1, useCustomToolModel);
 }
+
+/**
+ * Returns a user-friendly display string for a model or alias.
+ */
 export function getDisplayString(model: string) {
   switch (model) {
     case PREVIEW_GEMINI_MODEL_AUTO:
@@ -131,13 +236,7 @@ export function getDisplayString(model: string) {
  * @returns True if the model is a preview model.
  */
 export function isPreviewModel(model: string): boolean {
-  return (
-    model === PREVIEW_GEMINI_MODEL ||
-    model === PREVIEW_GEMINI_3_1_MODEL ||
-    model === PREVIEW_GEMINI_3_1_CUSTOM_TOOLS_MODEL ||
-    model === PREVIEW_GEMINI_FLASH_MODEL ||
-    model === PREVIEW_GEMINI_MODEL_AUTO
-  );
+  return getMetadata(model).isPreview;
 }
 
 /**
@@ -147,7 +246,7 @@ export function isPreviewModel(model: string): boolean {
  * @returns True if the model is a Pro model.
  */
 export function isProModel(model: string): boolean {
-  return model.toLowerCase().includes('pro');
+  return getMetadata(model).isPro;
 }
 
 /**
@@ -157,8 +256,7 @@ export function isProModel(model: string): boolean {
  * @returns True if the model is a Gemini 3 model.
  */
 export function isGemini3Model(model: string): boolean {
-  const resolved = resolveModel(model);
-  return /^gemini-3(\.|-|$)/.test(resolved);
+  return getMetadata(model).family === 'gemini-3';
 }
 
 /**
@@ -168,7 +266,7 @@ export function isGemini3Model(model: string): boolean {
  * @returns True if the model is a Gemini-2.x model.
  */
 export function isGemini2Model(model: string): boolean {
-  return /^gemini-2(\.|$)/.test(model);
+  return getMetadata(model).family === 'gemini-2';
 }
 
 /**
@@ -178,8 +276,7 @@ export function isGemini2Model(model: string): boolean {
  * @returns True if the model is not a Gemini branded model.
  */
 export function isCustomModel(model: string): boolean {
-  const resolved = resolveModel(model);
-  return !resolved.startsWith('gemini-');
+  return getMetadata(model).family === 'custom';
 }
 
 /**
@@ -190,8 +287,7 @@ export function isCustomModel(model: string): boolean {
  * @returns True if the model supports modern features like thoughts.
  */
 export function supportsModernFeatures(model: string): boolean {
-  if (isGemini3Model(model)) return true;
-  return isCustomModel(model);
+  return getMetadata(model).supportsModernFeatures;
 }
 
 /**
@@ -216,7 +312,7 @@ export function isAutoModel(model: string): boolean {
  * @returns True if the model supports multimodal function responses.
  */
 export function supportsMultimodalFunctionResponse(model: string): boolean {
-  return model.startsWith('gemini-3-');
+  return getMetadata(model).supportsMultimodalFunctionResponse;
 }
 
 /**
@@ -224,6 +320,7 @@ export function supportsMultimodalFunctionResponse(model: string): boolean {
  *
  * @param model The model name to check.
  * @param useGemini3_1 Whether Gemini 3.1 Pro Preview is enabled.
+ * @param useCustomToolModel Whether the custom tools model is preferred.
  * @returns True if the model is active.
  */
 export function isActiveModel(
