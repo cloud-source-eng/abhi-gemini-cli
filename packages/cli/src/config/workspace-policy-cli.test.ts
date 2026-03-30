@@ -11,6 +11,7 @@ import { createTestMergedSettings } from './settings.js';
 import * as ServerConfig from '@google/gemini-cli-core';
 import { isWorkspaceTrusted } from './trustedFolders.js';
 import * as Policy from './policy.js';
+import { ExtensionManager } from './extension-manager.js';
 
 // Mock dependencies
 vi.mock('./trustedFolders.js', () => ({
@@ -79,7 +80,15 @@ describe('Workspace-Level Policy CLI Integration', () => {
     const settings = createTestMergedSettings();
     const argv = { query: 'test' } as unknown as CliArgs;
 
-    await loadCliConfig(settings, 'test-session', argv, { cwd: MOCK_CWD });
+    await loadCliConfig(settings, 'test-session', argv, {
+      cwd: MOCK_CWD,
+      extensionManager: new ExtensionManager({
+        settings,
+        requestConsent: vi.fn(),
+        requestSetting: vi.fn(),
+        workspaceDir: MOCK_CWD,
+      }),
+    });
 
     expect(ServerConfig.createPolicyEngineConfig).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -102,7 +111,15 @@ describe('Workspace-Level Policy CLI Integration', () => {
     const settings = createTestMergedSettings();
     const argv = { query: 'test' } as unknown as CliArgs;
 
-    await loadCliConfig(settings, 'test-session', argv, { cwd: MOCK_CWD });
+    await loadCliConfig(settings, 'test-session', argv, {
+      cwd: MOCK_CWD,
+      extensionManager: new ExtensionManager({
+        settings,
+        requestConsent: vi.fn(),
+        requestSetting: vi.fn(),
+        workspaceDir: MOCK_CWD,
+      }),
+    });
 
     expect(ServerConfig.createPolicyEngineConfig).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -128,7 +145,15 @@ describe('Workspace-Level Policy CLI Integration', () => {
     const settings = createTestMergedSettings();
     const argv = { query: 'test' } as unknown as CliArgs;
 
-    await loadCliConfig(settings, 'test-session', argv, { cwd: MOCK_CWD });
+    await loadCliConfig(settings, 'test-session', argv, {
+      cwd: MOCK_CWD,
+      extensionManager: new ExtensionManager({
+        settings,
+        requestConsent: vi.fn(),
+        requestSetting: vi.fn(),
+        workspaceDir: MOCK_CWD,
+      }),
+    });
 
     expect(ServerConfig.createPolicyEngineConfig).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -155,7 +180,15 @@ describe('Workspace-Level Policy CLI Integration', () => {
     const settings = createTestMergedSettings();
     const argv = { prompt: 'do something' } as unknown as CliArgs;
 
-    await loadCliConfig(settings, 'test-session', argv, { cwd: MOCK_CWD });
+    await loadCliConfig(settings, 'test-session', argv, {
+      cwd: MOCK_CWD,
+      extensionManager: new ExtensionManager({
+        settings,
+        requestConsent: vi.fn(),
+        requestSetting: vi.fn(),
+        workspaceDir: MOCK_CWD,
+      }),
+    });
 
     expect(mockAcceptIntegrity).toHaveBeenCalledWith(
       'workspace',
@@ -194,6 +227,12 @@ describe('Workspace-Level Policy CLI Integration', () => {
 
     const config = await loadCliConfig(settings, 'test-session', argv, {
       cwd: MOCK_CWD,
+      extensionManager: new ExtensionManager({
+        settings,
+        requestConsent: vi.fn(),
+        requestSetting: vi.fn(),
+        workspaceDir: MOCK_CWD,
+      }),
     });
 
     expect(config.getPolicyUpdateConfirmationRequest()).toBeUndefined();
@@ -231,6 +270,12 @@ describe('Workspace-Level Policy CLI Integration', () => {
 
     const config = await loadCliConfig(settings, 'test-session', argv, {
       cwd: MOCK_CWD,
+      extensionManager: new ExtensionManager({
+        settings,
+        requestConsent: vi.fn(),
+        requestSetting: vi.fn(),
+        workspaceDir: MOCK_CWD,
+      }),
     });
 
     expect(config.getPolicyUpdateConfirmationRequest()).toBeUndefined();
@@ -277,6 +322,12 @@ describe('Workspace-Level Policy CLI Integration', () => {
 
       const config = await loadCliConfig(settings, 'test-session', argv, {
         cwd: MOCK_CWD,
+        extensionManager: new ExtensionManager({
+          settings,
+          requestConsent: vi.fn(),
+          requestSetting: vi.fn(),
+          workspaceDir: MOCK_CWD,
+        }),
       });
 
       expect(config.getPolicyUpdateConfirmationRequest()).toEqual({
