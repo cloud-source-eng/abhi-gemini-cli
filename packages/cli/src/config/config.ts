@@ -508,6 +508,23 @@ export function isDebugMode(argv: CliArgs): boolean {
   );
 }
 
+export async function createExtensionManager(
+  settings: MergedSettings,
+  argv: CliArgs,
+  cwd: string = process.cwd(),
+): Promise<ExtensionManager> {
+  return new ExtensionManager({
+    settings,
+    requestConsent: requestConsentNonInteractive,
+    requestSetting: promptForSetting,
+    workspaceDir: cwd,
+    enabledExtensionOverrides: argv.extensions,
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+    eventEmitter: coreEvents as EventEmitter<ExtensionEvents>,
+    clientVersion: await getVersion(),
+  });
+}
+
 export interface LoadCliConfigOptions {
   cwd?: string;
   projectHooks?: { [K in HookEventName]?: HookDefinition[] } & {
@@ -523,8 +540,11 @@ export async function loadCliConfig(
   argv: CliArgs,
   options: LoadCliConfigOptions = {},
 ): Promise<Config> {
-  const { cwd = process.cwd(), projectHooks } = options;
-  let { extensionManager } = options;
+  const {
+    cwd = process.cwd(),
+    projectHooks,
+    extensionManager: providedExtensionManager,
+  } = options;
   const debugMode = isDebugMode(argv);
 
   const worktreeSettings =
@@ -599,17 +619,11 @@ export async function loadCliConfig(
     includeDirectories.push(...ideFolders);
   }
 
-  if (!extensionManager) {
-    extensionManager = new ExtensionManager({
-      settings,
-      requestConsent: requestConsentNonInteractive,
-      requestSetting: promptForSetting,
-      workspaceDir: cwd,
-      enabledExtensionOverrides: argv.extensions,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      eventEmitter: coreEvents as EventEmitter<ExtensionEvents>,
-      clientVersion: await getVersion(),
-    });
+  const extensionManager =
+    providedExtensionManager ??
+    (await createExtensionManager(settings, argv, cwd));
+
+  if (!providedExtensionManager) {
     await extensionManager.loadExtensions();
   }
 
