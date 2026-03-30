@@ -181,6 +181,7 @@ vi.mock('./extension-manager.js', () => {
   const ExtensionManager = vi.fn();
   ExtensionManager.prototype.loadExtensions = vi.fn();
   ExtensionManager.prototype.getExtensions = vi.fn().mockReturnValue([]);
+  ExtensionManager.prototype.setSettings = vi.fn();
   return { ExtensionManager };
 });
 
