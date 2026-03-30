@@ -166,6 +166,10 @@ export class ExtensionManager extends ExtensionLoader {
     this.requestSetting = requestSetting;
   }
 
+  setSettings(settings: MergedSettings): void {
+    this.settings = settings;
+  }
+
   getExtensions(): GeminiCLIExtension[] {
     if (!this.loadedExtensions) {
       throw new Error(
