@@ -514,6 +514,7 @@ export interface LoadCliConfigOptions {
     disabled?: string[];
   };
   worktreeSettings?: WorktreeSettings;
+  extensionManager?: ExtensionManager;
 }
 
 export async function loadCliConfig(
@@ -523,6 +524,7 @@ export async function loadCliConfig(
   options: LoadCliConfigOptions = {},
 ): Promise<Config> {
   const { cwd = process.cwd(), projectHooks } = options;
+  let { extensionManager } = options;
   const debugMode = isDebugMode(argv);
 
   const worktreeSettings =
@@ -597,17 +599,19 @@ export async function loadCliConfig(
     includeDirectories.push(...ideFolders);
   }
 
-  const extensionManager = new ExtensionManager({
-    settings,
-    requestConsent: requestConsentNonInteractive,
-    requestSetting: promptForSetting,
-    workspaceDir: cwd,
-    enabledExtensionOverrides: argv.extensions,
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    eventEmitter: coreEvents as EventEmitter<ExtensionEvents>,
-    clientVersion: await getVersion(),
-  });
-  await extensionManager.loadExtensions();
+  if (!extensionManager) {
+    extensionManager = new ExtensionManager({
+      settings,
+      requestConsent: requestConsentNonInteractive,
+      requestSetting: promptForSetting,
+      workspaceDir: cwd,
+      enabledExtensionOverrides: argv.extensions,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+      eventEmitter: coreEvents as EventEmitter<ExtensionEvents>,
+      clientVersion: await getVersion(),
+    });
+    await extensionManager.loadExtensions();
+  }
 
   const extensionPlanSettings = extensionManager
     .getExtensions()
