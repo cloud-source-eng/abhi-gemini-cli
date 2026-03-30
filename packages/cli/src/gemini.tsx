@@ -33,6 +33,7 @@ import {
   type AdminControlsSettings,
   debugLogger,
   isHeadlessMode,
+  type ExtensionEvents,
 } from '@google/gemini-cli-core';
 
 import { loadCliConfig, parseArguments } from './config/config.js';
@@ -93,6 +94,10 @@ import { setupTerminalAndTheme } from './utils/terminalTheme.js';
 import { runDeferredCommand } from './deferred.js';
 import { cleanupBackgroundLogs } from './utils/logCleanup.js';
 import { SlashCommandConflictHandler } from './services/SlashCommandConflictHandler.js';
+import { ExtensionManager } from './config/extension-manager.js';
+import { requestConsentNonInteractive } from './config/extensions/consent.js';
+import { promptForSetting } from './config/extensions/extensionSettings.js';
+import type { EventEmitter } from 'node:stream';
 
 export function validateDnsResolutionOrder(
   order: string | undefined,
@@ -259,6 +264,18 @@ export async function main() {
 
   const argv = await argvPromise;
 
+  const extensionManager = new ExtensionManager({
+    settings: settings.merged,
+    requestConsent: requestConsentNonInteractive,
+    requestSetting: promptForSetting,
+    workspaceDir: process.cwd(),
+    enabledExtensionOverrides: argv.extensions,
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+    eventEmitter: coreEvents as EventEmitter<ExtensionEvents>,
+    clientVersion: await getVersion(),
+  });
+  await extensionManager.loadExtensions();
+
   if (
     (argv.allowedTools && argv.allowedTools.length > 0) ||
     (settings.merged.tools?.allowed && settings.merged.tools.allowed.length > 0)
@@ -329,6 +346,7 @@ export async function main() {
 
   const partialConfig = await loadCliConfig(settings.merged, sessionId, argv, {
     projectHooks: settings.workspace.settings.hooks,
+    extensionManager,
   });
   adminControlsListner.setConfig(partialConfig);
 
@@ -454,6 +472,7 @@ export async function main() {
     const config = await loadCliConfig(settings.merged, sessionId, argv, {
       projectHooks: settings.workspace.settings.hooks,
       worktreeSettings: worktreeInfo,
+      extensionManager,
     });
     loadConfigHandle?.end();
 
